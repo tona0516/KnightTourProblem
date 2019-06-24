@@ -1,43 +1,55 @@
+import sys
 import copy
+import argparse
 
 BOARD_LENGTH = 8
 
+is_solve_closed = False
 
 def init_board():
-    """ボードの初期化
+    """initialize board
 
     Returns:
-        list -- マスの2次元配列
+        list -- 2d array of square
     """
     return [[0 for i in range(BOARD_LENGTH)] for j in range(BOARD_LENGTH)]
 
 
-def get_initial_position():
-    """初期座標を返却
+def get_arguments():
+    """get inputs from command line argument
 
     Returns:
-        tuple -- 座標
+        list -- arguments
     """
-    return (0, 0)
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('row', type=int, help='initial row position', choices=range(0, 8))
+    parser.add_argument('column', type=int, help='initial column position', choices=range(0, 8))
+    parser.add_argument('-c', '--closed', help="solve closed knight's tour problem", action='store_true')
+
+    return parser.parse_args()
 
 
-def is_finished(board, current_posiotion, initial_position):
-    """終了判定
+def is_solved(board, current_posiotion, initial_position):
+    """check to have solved
 
     Arguments:
-        board {list} -- ボード
-        current_posiotion {tuple} -- 現在座標
-        initial_position {tuple} -- 初期座標
+        board {list} -- board
+        current_posiotion {tuple} -- current knight's position
+        initial_position {tuple} -- initial knight's position
 
     Returns:
-        bool -- 解が見つかったらTrue
+        bool -- True if this problem has solved
     """
-    # 現在座標から初期座標に戻れること
-    next_positions = get_next_positions(board, current_posiotion, enable_passed_check=False)
-    if not (initial_position in next_positions):
-        return False
+    global is_solve_closed
 
-    # すべて通過していること
+    if is_solve_closed is True:
+        # knight can move from current position to initial one?
+        next_positions = get_next_positions(board, current_posiotion, enable_passed_check=False)
+        if not (initial_position in next_positions):
+            return False
+
+    # all squares are passed?
     for row in board:
         for square in row:
             if square == 0:
@@ -47,16 +59,16 @@ def is_finished(board, current_posiotion, initial_position):
 
 
 def get_next_positions(board, current_position, enable_passed_check=True):
-    """現在座標から移動可能な座標を返却
+    """get positions where knight can move from its current position
 
     Arguments:
-        board {list} -- ボード
-        current_position {tuple} -- 現在座標
-        enable_passed_check {bool} -- Trueなら通過した座標を除外
+        board {list} -- board
+        current_position {tuple} -- current knight's position
+        enable_passed_check {bool} -- exclude passed positions if it is True
     Returns:
-        list -- 座標のリスト
+        list -- positions
     """
-    # 移動可能な座標を算出
+    # calculate
     diffs = [
         (1, 2),
         (1, -2),
@@ -73,50 +85,46 @@ def get_next_positions(board, current_position, enable_passed_check=True):
     if enable_passed_check is False:
         return next_positions
 
-    # すでに通過したマスを除外
+    # exclude passed positions
     not_passed_next_positions = [np for np in next_positions if board[np[0]][np[1]] == 0]
     return not_passed_next_positions
 
 
-def sort_by_Warnsdorfs_rule(board, next_positions):
-    """Warnsdorf's ruleに則ってソートする
+def sort_by_warnsdorfs_rule(board, next_positions):
+    """sort by Warnsdorf's rule
 
     Arguments:
-        board {list} -- ボード
-        next_positions {list} -- 次に移動する座標のリスト
+        board {list} -- board
+        next_positions {list} -- positions
 
     Returns:
-        list -- ソートした次に移動する座標のリスト
+        list -- sorted positions
     """
     tmp = [(len(get_next_positions(board, np)), np) for np in next_positions]
     return [np[1] for np in sorted(tmp, key=lambda x: x[0])]
 
 
 def solve(board, current_position, initial_position):
-    """再帰的に探索
+    """solve the problem by depth-first search
 
     Arguments:
-        board {list} -- ボード
-        current_position {tuple} -- 現在座標
-        initial_position {tuple} -- 初期座標
+        board {list} -- board
+        current_position {tuple} -- current knight's position
+        initial_position {tuple} -- initial knight's position
 
     Returns:
-        list -- ボード
+        list -- board
     """
-    # 解が見つかったら終了
-    if is_finished(board, current_position, initial_position):
+    if is_solved(board, current_position, initial_position):
         return board
 
-    # 移動可能な座標を列挙
-    # なければ一手戻る
     next_positions = get_next_positions(board, current_position)
     if not next_positions:
         return None
 
-    # ソート
-    sorted_next_positions = sort_by_Warnsdorfs_rule(board, next_positions)
+    sorted_next_positions = sort_by_warnsdorfs_rule(board, next_positions)
 
-    # 移動して次手へ
+    # go next step
     for next_position in sorted_next_positions:
         next_order = board[current_position[0]][current_position[1]] + 1
         next_board = copy.deepcopy(board)
@@ -129,10 +137,10 @@ def solve(board, current_position, initial_position):
 
 
 def print_board(board):
-    """ボードを標準出力
+    """output board
 
     Arguments:
-        board {list} -- ボード
+        board {list} -- board
     """
     for row in board:
         for square in row:
@@ -141,14 +149,24 @@ def print_board(board):
 
 
 def main():
+    global is_solve_closed
+
+    args = get_arguments()
+    is_solve_closed = args.closed
+    initial_position = (args.row, args.column)
+
     board = init_board()
-    initial_position = get_initial_position()
     board[initial_position[0]][initial_position[1]] = 1
 
     print('----- initial board -----')
     print_board(board)
+    print()
 
     solved_board = solve(board, initial_position, initial_position)
+
+    if solved_board is None:
+        print('not found the solution...')
+        sys.exit(1)
 
     print('----- solved board -----')
     print_board(solved_board)
